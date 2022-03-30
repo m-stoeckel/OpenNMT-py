@@ -1,3 +1,4 @@
+import re
 from typing import List
 
 import regex as rx
@@ -69,7 +70,7 @@ class PreTokenize(Transform):
     def _pre_tokenize(self, sentence: List[str]) -> List[str]:
         sentence = ' '.join(sentence)
         # Split punctuation marks from words
-        sentence = rx.sub(r'((?<= )[\pP\pS]+|[\pP\pS]+(?= )|(?<=^)[\pP\pS]+|[\pP\pS]+(?=$))', ' \\1 ', sentence)
+        sentence = rx.sub(r'(((?<= )[^\PP\.]+|[^\PP\.]+(?= )|(?<=^)[\pP\pS]+|[\pP\pS]+(?=$)))', ' \\1 ', sentence)
 
         # Split punctuation marks from each other, except EOS markers.
         sentence = rx.sub(r'((?<=[\.\!\?,])[^\PP\.\!\?,]|[^\PP\.\!\?,](?=[\.\!\?,]))', ' \\1 ', sentence)
@@ -85,4 +86,24 @@ class PreTokenize(Transform):
     def apply(self, example, is_train=False, stats=None, **kwargs):
         example['src'] = self._pre_tokenize(example['src'])
         example['tgt'] = self._pre_tokenize(example['tgt'])
+        return example
+
+
+
+@register_transform(name='clean_ted')
+class CleanTED(Transform):
+    """Remove audience recations from TEDx talk transcripts."""
+
+    bracket_regex = re.compile(r"\([^)]+\)")
+    symbol_regex = re.compile(r"[♫] ?")
+
+    def clean(self, sentence: List[str]) -> List[str]:
+        sentence = ' '.join(sentence)
+        sentence = self.bracket_regex.sub("", sentence)
+        sentence = self.symbol_regex.sub("", sentence)
+        return sentence.split()
+
+    def apply(self, example, is_train=False, stats=None, **kwargs):
+        example['src'] = self.clean(example['src'])
+        example['tgt'] = self.clean(example['tgt'])
         return example
